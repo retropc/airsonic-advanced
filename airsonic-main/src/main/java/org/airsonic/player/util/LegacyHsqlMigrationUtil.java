@@ -76,8 +76,8 @@ public class LegacyHsqlMigrationUtil {
                 return true;
             }
         } catch (SQLException e) {
-            LOG.warn("HSQLDB database driver version cannot be determined. Will make a copy of the DB prior to connecting. This may upgrade the database from version {}", currentVersion, e);
-            return true;
+            LOG.warn("HSQLDB database driver version cannot be determined.", e);
+            return false;
         }
 
         if (currentVersion.startsWith("2.")) {
