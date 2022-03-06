@@ -124,7 +124,7 @@ MediaElementPlayer = (function(cls) {
             return;
           }
 
-          callback(value, -1);
+          callback(src, -1);
         },
       });
     };
