@@ -96,37 +96,74 @@ MediaElementPlayer = (function(cls) {
       }
 
       console.log("replaygain value not found in cache, fetching from server...");
+      var song_url = a_e.href;
 
-      new jsmediatags.Reader(a_e.href).setTagsToRead(["TXXX"]).read({
-        onSuccess: function(tag) {
-          if (ourRequest != activeRequest) {
-            console.log("replaygain request cancelled");
-            return;
-          }
+      var continueFetch = function() {
+        new jsmediatags.Reader(song_url).setTagsToRead(["TXXX"]).read({
+          onSuccess: function(tag) {
+            if (ourRequest != activeRequest) {
+              console.log("replaygain request cancelled");
+              return;
+            }
 
-          var baseVolume;
-          var rg = extractReplay(tag);
-          if (rg !== undefined) {
-            baseVolume = Math.pow(10, (rg) / 20);
-            if (baseVolume < 0 || baseVolume > 1)
+            var baseVolume;
+            var rg = extractReplay(tag);
+            if (rg !== undefined) {
+              baseVolume = Math.pow(10, (rg) / 20);
+              if (baseVolume < 0 || baseVolume > 1)
+                baseVolume = -1;
+            } else {
+              console.log("replaygain tag not found or invalid");
               baseVolume = -1;
-          } else {
-            console.log("replaygain tag not found or invalid");
-            baseVolume = -1;
-          }
+            }
 
-          cache.set(songId, baseVolume);
-          callback(src, baseVolume);
-        },
-        onError: function() {
-          if (ourRequest != activeRequest) {
-            console.log("replaygain request cancelled");
-            return;
-          }
+            cache.set(songId, baseVolume);
+            callback(src, baseVolume);
+          },
+          onError: function() {
+            if (ourRequest != activeRequest) {
+              console.log("replaygain request cancelled");
+              return;
+            }
 
-          callback(src, -1);
-        },
-      });
+            cache.set(songId, -1);
+            callback(src, -1);
+          },
+        });
+      };
+
+      a_e.pathname = "/rest/getSong";
+      var metadata_url = a_e.href;
+      var xhr = new XMLHttpRequest();
+      xhr.onerror = function() {
+        console.log("error fetching song metadata, not fetching replaygain");
+        callback(src, -1);
+      };
+      xhr.onload = function() {
+        var xml = xhr.responseXML;
+        if (xml) {
+          var song = xml.querySelector("song");
+          if (song) {
+            var contentType = song.getAttribute("contentType");
+            if (contentType) {
+              if (contentType == "audio/mpeg") {
+                continueFetch();
+                return;
+              } else {
+                console.log("unknown content type: " + contentType + " -- not fetching replaygain");
+                cache.set(songId, -1);
+                callback(src, -1);
+                return;
+              }
+            }
+          }
+        }
+
+        console.log("error fetching content type, not fetching replaygain");
+        callback(src, -1);
+      };
+      xhr.open("GET", metadata_url);
+      xhr.send();
     };
   };
 
